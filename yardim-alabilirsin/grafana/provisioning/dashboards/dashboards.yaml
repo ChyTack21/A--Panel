@@ -1,0 +1,39 @@
+apiVersion: 1
+
+providers:
+  - name: Platform
+    orgId: 1
+    folder: Platform
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+  - name: Host
+    orgId: 1
+    folder: Host
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/host
+  - name: Containers
+    orgId: 1
+    folder: Containers
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/containers
+  - name: GPU
+    orgId: 1
+    folder: GPU
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/gpu

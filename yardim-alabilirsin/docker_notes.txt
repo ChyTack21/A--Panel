@@ -1,0 +1,215 @@
+AI Panel Docker Notes
+=====================
+
+What this stack now includes
+----------------------------
+- Core platform: Keycloak, Grafana, Prometheus, Loki, Promtail, MLflow, MinIO, NGINX, portal
+- Host observability: node-exporter
+- Container observability: cAdvisor
+- GPU observability profile:
+  - dcgm-exporter
+  - nvidia-smi fallback exporter
+  - gpu-demo CUDA/PyTorch workload
+  - gpu-serving-sim HTTP lane
+  - gpu-learning-sim background lane
+  - gpu-orchestrator scheduler
+  - optional k6 load profile
+
+Prerequisites
+-------------
+- Docker Desktop or Docker Engine
+- If Windows: Docker Desktop with WSL2 backend enabled
+- NVIDIA GPU driver installed on the host
+- Docker GPU access working
+
+Quick GPU checks before compose
+-------------------------------
+Host side:
+- `nvidia-smi`
+
+Docker side:
+- `docker run --rm --gpus all nvidia/cuda:12.4.1-base-ubuntu22.04 nvidia-smi`
+
+If the second command cannot see the GPU, the `gpu` compose profile will not work either.
+
+Run commands
+------------
+Normal stack:
+- `docker compose up -d`
+
+GPU-enabled stack:
+- `docker compose --profile gpu up -d --build`
+
+GPU-enabled stack + k6 load test profile:
+- `docker compose --profile gpu --profile loadtest up -d --build`
+
+Stop stack:
+- `docker compose down`
+
+Stop and remove volumes:
+- `docker compose down -v`
+
+Recreate a single service:
+- `docker compose up -d --force-recreate nginx`
+
+Useful status commands
+----------------------
+- `docker compose ps`
+- `docker logs --tail=120 ai_prometheus`
+- `docker logs --tail=120 ai_gpu_demo`
+- `docker logs --tail=120 ai_dcgm_exporter`
+- `docker logs --tail=120 ai_gpu_metrics_exporter`
+
+Prometheus validation
+---------------------
+Open:
+- `http://localhost:9090/targets`
+
+Expected base targets:
+- `prometheus`
+- `node`
+- `cadvisor`
+- `http_probe`
+
+Expected GPU profile targets:
+- `dcgm`
+- `gpu_fallback`
+- `gpu_demo`
+- `gpu_serving`
+- `gpu_learning`
+- `gpu_orchestrator`
+
+Useful PromQL checks
+--------------------
+- `up`
+- `node_memory_MemTotal_bytes`
+- `rate(container_cpu_usage_seconds_total[5m])`
+- `DCGM_FI_DEV_GPU_UTIL`
+- `nvidia_smi_gpu_utilization_percent`
+- `gpu_demo_iterations_total`
+- `gpu_serving_active_requests`
+- `gpu_serving_queue_depth`
+- `gpu_learning_mode`
+- `gpu_orchestrator_mode`
+
+Grafana dashboards
+------------------
+Open:
+- `http://localhost:3000`
+
+Provisioned dashboards:
+- `Platform / Infrastructure Overview`
+- `Host / Host Node Overview`
+- `Containers / Container Overview`
+- `GPU / GPU Observability`
+- `GPU / GPU Lane Simulation`
+
+Direct links:
+- `http://localhost:3000/d/infra-overview`
+- `http://localhost:3000/d/node-overview`
+- `http://localhost:3000/d/container-overview`
+- `http://localhost:3000/d/gpu-observability`
+- `http://localhost:3000/d/gpu-lane-simulation`
+
+Serving and orchestration endpoints
+-----------------------------------
+- Serving status: `http://localhost:9700/status`
+- Serving infer endpoint: `http://localhost:9700/infer`
+- Orchestrator status: `http://localhost:9702/status`
+
+Manual serving test
+-------------------
+PowerShell example:
+- `Invoke-RestMethod -Method Post -Uri http://localhost:9700/infer -ContentType 'application/json' -Body '{"matrix_size":3072,"steps":3,"batches":2,"precision":"float16"}'`
+
+This should return request duration, GPU index and UUID.
+
+k6 load testing
+---------------
+Run inside compose:
+- `docker compose --profile gpu --profile loadtest up -d gpu_serving_loadtest`
+
+Run once with docker directly:
+- `docker run --rm --network ai-panel_ainet -e TARGET_URL=http://gpu_serving_sim:9700/infer -v ${PWD}/tests/k6:/scripts grafana/k6:0.50.0 run /scripts/gpu-serving-load.js`
+
+What to watch during the test
+-----------------------------
+- `GPU / GPU Lane Simulation`
+  - Serving Active Requests
+  - Serving Queue Depth
+  - Serving Request Rate
+  - Serving Latency
+  - Learning Iteration Rate
+  - Orchestrator Mode
+- `GPU / GPU Observability`
+  - GPU utilization
+  - GPU memory usage
+  - GPU power draw
+
+How to verify the GPU demo is real
+----------------------------------
+1. Run:
+   - `docker compose --profile gpu up -d --build`
+2. Watch logs:
+   - `docker logs -f ai_gpu_demo`
+3. You should see workload loop messages for one or more CUDA devices.
+4. In Grafana open `GPU Observability`.
+5. Expect to see movement in:
+   - GPU utilization
+   - GPU memory used
+   - GPU power draw
+   - GPU temperature
+   - gpu-demo iteration metrics
+
+Optional direct checks
+----------------------
+Check GPU inside the demo container:
+- `docker exec -it ai_gpu_demo python -c "import torch; print(torch.cuda.is_available(), torch.cuda.device_count())"`
+
+Check exporter metrics:
+- `http://localhost:9400/metrics`
+- `http://localhost:9500/metrics`
+- `http://localhost:9600/metrics`
+
+Troubleshooting
+---------------
+Problem: GPU profile is up but no GPU metrics
+- Verify host `nvidia-smi`
+- Verify Docker GPU access with the CUDA test container
+- Check `ai_dcgm_exporter` logs
+- Check `ai_gpu_metrics_exporter` logs
+- Check `Prometheus /targets`
+
+Problem: `dcgm` target is down
+- Driver / runtime / Docker GPU integration may be incomplete
+- Use fallback metrics from `gpu_fallback`
+- Check `http://localhost:9500/metrics`
+
+Problem: dashboard is empty
+- Wait 15 to 30 seconds for first scrape
+- Confirm target is `UP` in Prometheus
+- Confirm the right dashboard folder was provisioned
+- If GPU profile is not enabled, GPU dashboard will remain empty
+- If lane simulation is empty, confirm `gpu_serving`, `gpu_learning`, `gpu_orchestrator` are `UP`
+
+Problem: gpu-demo says CUDA is unavailable
+- Docker cannot pass through the GPU
+- Re-check WSL2 backend and Docker Desktop GPU support
+- Re-run the standalone CUDA container test
+
+Problem: serving lane is fine but learning lane never resumes
+- Open `http://localhost:9702/status`
+- Check orchestrator reason field
+- If serving queue depth stays high, reduce k6 VUs or lower matrix size
+- If GPU memory is too high, reduce learning aggressive matrix size
+
+Problem: cAdvisor has partial container data on Docker Desktop
+- Docker Desktop API compatibility can limit some container metrics
+- Host metrics from node-exporter should still work
+- cAdvisor is still useful for demo/sunum purposes, but Linux hosts are cleaner
+
+Architecture notes
+------------------
+- GPU services are isolated behind the `gpu` compose profile
+- The dashboard/query shape is label-oriented: `instance`, `gpu`, `uuid`
+- This is intentional so future work can add more GPUs or MIG-related labels without redesigning the whole stack

@@ -1,0 +1,65 @@
+groups:
+  - name: infrastructure-health
+    rules:
+      - alert: TelemetryTargetDown
+        expr: up{job=~"prometheus|node|cadvisor|http_probe|dcgm|gpu_fallback|gpu_demo|gpu_serving|gpu_learning|gpu_orchestrator"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Telemetry target down"
+          description: "Prometheus target {{ $labels.job }} on {{ $labels.instance }} is down."
+
+      - alert: GPUTemperatureHigh
+        expr: max by (instance, gpu) ((DCGM_FI_DEV_GPU_TEMP{job="dcgm"}) or (nvidia_smi_gpu_temperature_celsius{job="gpu_fallback"})) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU temperature high"
+          description: "GPU {{ $labels.gpu }} is above 80C on {{ $labels.instance }}."
+
+      - alert: GPUMemoryUsageHigh
+        expr: max by (instance, gpu) (((DCGM_FI_DEV_FB_USED{job="dcgm"} / clamp_min(DCGM_FI_DEV_FB_FREE{job="dcgm"} + DCGM_FI_DEV_FB_USED{job="dcgm"}, 1)) * 100) or (nvidia_smi_gpu_memory_used_percent{job="gpu_fallback"})) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GPU memory usage high"
+          description: "GPU {{ $labels.gpu }} memory usage exceeded 90% on {{ $labels.instance }}."
+
+      - alert: GPUUtilizationSustainedHigh
+        expr: avg_over_time(((DCGM_FI_DEV_GPU_UTIL{job="dcgm"}) or (nvidia_smi_gpu_utilization_percent{job="gpu_fallback"}))[10m:]) > 85
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "GPU utilization sustained high"
+          description: "GPU {{ $labels.gpu }} has sustained high utilization on {{ $labels.instance }}."
+
+      - alert: ServingLaneLatencyHigh
+        expr: histogram_quantile(0.95, sum by (le, instance) (rate(gpu_serving_request_seconds_bucket{job="gpu_serving"}[5m]))) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Serving lane latency high"
+          description: "Serving lane p95 latency exceeded 2s on {{ $labels.instance }}."
+
+      - alert: LearningLanePausedTooLong
+        expr: gpu_learning_mode{job="gpu_learning", mode="paused"} == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Learning lane paused too long"
+          description: "Learning lane has stayed paused for more than 15 minutes on {{ $labels.instance }}."
+
+      - alert: OrchestratorServingPressure
+        expr: gpu_orchestrator_serving_queue_depth{job="gpu_orchestrator"} > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Serving queue pressure detected"
+          description: "Serving queue depth stayed above 2 on {{ $labels.instance }}."

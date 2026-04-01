@@ -1,0 +1,411 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ai_postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpass
+      POSTGRES_DB: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [ainet]
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:25.0
+    container_name: ai_keycloak
+    restart: unless-stopped
+    depends_on: [keycloak_db]
+    command: ["start-dev", "--http-port=8080", "--import-realm"]
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import  
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloakpass
+
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+
+      # Reverse proxy arkasında düzgün URL üretmesi için:
+      KC_PROXY: edge
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_RELATIVE_PATH: /keycloak
+    networks: [ainet]
+
+  # Keycloak backend DB (ayrı DB önerilir)
+  keycloak_db:
+    image: postgres:16
+    container_name: ai_keycloak_db
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloakpass
+      POSTGRES_DB: keycloak
+    volumes:
+      - keycloak_pgdata:/var/lib/postgresql/data
+    networks: [ainet]
+
+  # MLflow backend DB (ayrı DB önerilir)
+  mlflow_db:
+    image: postgres:16
+    container_name: ai_mlflow_db    
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflowpass
+      POSTGRES_DB: mlflow
+    volumes:
+      - mlflow_pgdata:/var/lib/postgresql/data
+    networks: [ainet]
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    container_name: ai_minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    volumes:
+      - minio_data:/data
+    networks: [ainet]
+
+  # MinIO bucket otomatik oluşturma (mlflow)
+  minio_init:
+    image: minio/mc:RELEASE.2025-01-17T23-25-50Z
+    container_name: ai_minio_init
+    depends_on: [minio]
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "mc alias set local http://minio:9000 minio minio12345 &&
+       mc mb -p local/mlflow || true &&
+       mc anonymous set download local/mlflow || true &&
+       echo 'MinIO bucket ready.'"
+    networks: [ainet]
+
+  mlflow:
+    build: ./mlflow       # image: ghcr.io/mlflow/mlflow:v2.14.2  ---  psycopg2 install nedeni ile alt dockerfile olusturuldu
+    container_name: ai_mlflow
+    depends_on: [mlflow_db, minio_init]
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql+psycopg2://mlflow:mlflowpass@mlflow_db:5432/mlflow
+      --default-artifact-root s3://mlflow/
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      AWS_REGION: us-east-1
+    networks: [ainet]
+
+  # MLflow'u Keycloak ile korumak için oauth2-proxy
+  oauth2_proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+    container_name: ai_oauth2_proxy
+    restart: unless-stopped
+    depends_on:
+        keycloak:
+            condition: service_started
+        mlflow:
+            condition: service_started
+    environment:
+      # Keycloak OIDC
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: http://keycloak:8080/keycloak/realms/ai
+      OAUTH2_PROXY_CLIENT_ID: mlflow
+      OAUTH2_PROXY_CLIENT_SECRET: "CHANGE_ME_MLFLOW_SECRET"
+
+      # Reverse proxy altında path ile kullanacağız
+      OAUTH2_PROXY_REDIRECT_URL: http://localhost/oauth2/callback
+
+      # Kullanıcı oturumu (dev için basit)
+      OAUTH2_PROXY_COOKIE_SECRET: "U2crX2h10rAfghYv8CxOPYT59HzSTGnekoKqKN9eZnE="
+      OAUTH2_PROXY_COOKIE_SECURE: "false"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+
+      # Yetkilendirme
+      OAUTH2_PROXY_EMAIL_DOMAINS: "*"
+      OAUTH2_PROXY_WHITELIST_DOMAINS: "localhost,127.0.0.1,nginx"
+
+      # Upstream MLflow
+      OAUTH2_PROXY_UPSTREAMS: http://mlflow:5000/
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+
+      # Header geçişleri (isteğe bağlı)
+      OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"
+      OAUTH2_PROXY_PASS_USER_HEADERS: "true"
+      
+      # Eklenenler
+      OAUTH2_PROXY_CODE_CHALLENGE_METHOD: S256
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_OIDC_EMAIL_CLAIM: email
+    networks: [ainet]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: ai_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.external-url=http://localhost/prometheus/
+    depends_on:
+      - node_exporter
+      - cadvisor
+      - blackbox_exporter
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+    networks: [ainet]
+    restart: unless-stopped
+
+  node_exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: ai_node_exporter
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro
+    networks: [ainet]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: ai_cadvisor
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    networks: [ainet]
+
+  blackbox_exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: ai_blackbox_exporter
+    restart: unless-stopped
+    networks: [ainet]
+
+  dcgm_exporter:
+    image: nvcr.io/nvidia/k8s/dcgm-exporter:3.3.9-3.6.1-ubuntu22.04
+    container_name: ai_dcgm_exporter
+    restart: unless-stopped
+    gpus: all
+    cap_add:
+      - SYS_ADMIN
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility,compute
+      DCGM_EXPORTER_LISTEN: ":9400"
+      DCGM_EXPORTER_KUBERNETES: "false"
+    networks: [ainet]
+
+  gpu_metrics_exporter:
+    build: ./gpu-exporter
+    container_name: ai_gpu_metrics_exporter
+    restart: unless-stopped
+    gpus: all
+    environment:
+      EXPORTER_PORT: "9500"
+      SCRAPE_INTERVAL_SECONDS: "5"
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility,compute
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9500/metrics', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [ainet]
+
+  gpu_demo:
+    build: ./gpu-demo
+    container_name: ai_gpu_demo
+    restart: unless-stopped
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility,compute
+      GPU_DEMO_MATRIX_SIZE: "4096"
+      GPU_DEMO_BATCHES: "4"
+      GPU_DEMO_SLEEP_SECONDS: "2"
+      GPU_DEMO_WARMUP_SECONDS: "5"
+      GPU_DEMO_METRICS_PORT: "9600"
+      GPU_DEMO_PRECISION: "float16"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9600/metrics', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - gpu_demo_cache:/root/.cache
+    networks: [ainet]
+
+  gpu_serving_sim:
+    build: ./gpu-serving-sim
+    container_name: ai_gpu_serving_sim
+    restart: unless-stopped
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility,compute
+      SERVING_PORT: "9700"
+      SERVING_DEFAULT_MATRIX_SIZE: "3584"
+      SERVING_DEFAULT_STEPS: "3"
+      SERVING_DEFAULT_BATCHES: "2"
+      SERVING_DEFAULT_PRECISION: "float16"
+      SERVING_CONCURRENCY: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9700/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [ainet]
+
+  gpu_learning_sim:
+    build: ./gpu-learning-sim
+    container_name: ai_gpu_learning_sim
+    restart: unless-stopped
+    gpus: all
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: utility,compute
+      LEARNING_PORT: "9701"
+      LEARNING_MODE: "balanced"
+      LEARNING_PRECISION: "float16"
+      LEARNING_AGGRESSIVE_MATRIX_SIZE: "6144"
+      LEARNING_AGGRESSIVE_BATCHES: "5"
+      LEARNING_AGGRESSIVE_SLEEP: "0.15"
+      LEARNING_BALANCED_MATRIX_SIZE: "4096"
+      LEARNING_BALANCED_BATCHES: "3"
+      LEARNING_BALANCED_SLEEP: "0.75"
+      LEARNING_TRICKLE_MATRIX_SIZE: "3072"
+      LEARNING_TRICKLE_BATCHES: "1"
+      LEARNING_TRICKLE_SLEEP: "1.50"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9701/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [ainet]
+
+  gpu_orchestrator:
+    build: ./gpu-orchestrator
+    container_name: ai_gpu_orchestrator
+    restart: unless-stopped
+    depends_on:
+      - gpu_serving_sim
+      - gpu_learning_sim
+    environment:
+      ORCH_PORT: "9702"
+      ORCH_POLL_INTERVAL_SECONDS: "5"
+      SERVING_STATUS_URL: "http://gpu_serving_sim:9700/status"
+      LEARNING_CONTROL_URL: "http://gpu_learning_sim:9701/control"
+      LEARNING_STATUS_URL: "http://gpu_learning_sim:9701/status"
+      DCGM_METRICS_URL: "http://dcgm_exporter:9400/metrics"
+      FALLBACK_METRICS_URL: "http://gpu_metrics_exporter:9500/metrics"
+      ORCH_SERVING_ACTIVE_PAUSE_THRESHOLD: "1"
+      ORCH_SERVING_QUEUE_PAUSE_THRESHOLD: "1"
+      ORCH_SERVING_LATENCY_WARN_SECONDS: "1.2"
+      ORCH_GPU_AGGRESSIVE_MAX_UTIL: "45"
+      ORCH_GPU_BALANCED_MAX_UTIL: "70"
+      ORCH_GPU_MEMORY_MAX_PERCENT: "80"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9702/healthz', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks: [ainet]
+
+  gpu_serving_loadtest:
+    image: grafana/k6:0.50.0
+    container_name: ai_gpu_serving_loadtest
+    profiles: ["loadtest"]
+    depends_on:
+      - gpu_serving_sim
+    environment:
+      TARGET_URL: "http://gpu_serving_sim:9700/infer"
+      K6_VUS: "6"
+      K6_DURATION: "2m"
+      K6_MATRIX_SIZE: "3072"
+      K6_STEPS: "3"
+      K6_BATCHES: "2"
+      K6_SLEEP_SECONDS: "0.2"
+    volumes:
+      - ./tests/k6:/scripts:ro
+    command: ["run", "/scripts/gpu-serving-load.js"]
+    networks: [ainet]
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: ai_loki
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    networks: [ainet]
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: ai_promtail
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [ainet]
+
+  grafana:
+    image: grafana/grafana:11.1.4
+    container_name: ai_grafana
+    depends_on: [prometheus, loki]
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks: [ainet]
+
+  # Basit portal (yerine sonra Angular koyarsın)
+  portal:
+    image: nginx:alpine
+    container_name: ai_portal
+    volumes:
+      - ./portal/index.html:/usr/share/nginx/html/index.html:ro
+    networks: [ainet]
+
+  # Tek domain + path reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ai_nginx
+    restart: unless-stopped
+    depends_on:
+        oauth2_proxy:
+            condition: service_started
+        grafana:
+            condition: service_started
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks: [ainet]
+
+networks:
+  ainet:
+
+volumes:
+  pgdata:
+  mlflow_pgdata:
+  minio_data:
+  grafana_data:
+  keycloak_pgdata:
+  gpu_demo_cache:

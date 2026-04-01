@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Platform Portal</title>
+  <style>
+    :root {
+      --bg: #09111f;
+      --panel: rgba(10, 20, 38, 0.92);
+      --panel-2: rgba(17, 30, 56, 0.88);
+      --line: rgba(255, 255, 255, 0.09);
+      --text: #ecf2ff;
+      --muted: #9cb0d3;
+      --accent: #4ed0a8;
+      --accent-2: #5c7cff;
+      --warn: #ffcf66;
+      --danger: #ff6b6b;
+      --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 700px at 10% 0%, rgba(92, 124, 255, 0.22), transparent 60%),
+        radial-gradient(900px 600px at 100% 0%, rgba(78, 208, 168, 0.18), transparent 50%),
+        linear-gradient(180deg, #07101d, #0b1424);
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      min-height: 100vh;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    .sidebar,
+    .workspace {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .sidebar {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: 0.2px;
+    }
+
+    .brand p,
+    .hint,
+    .service p,
+    .workspace-copy,
+    .status-line,
+    .empty-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .pill-row,
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 14px rgba(78, 208, 168, 0.55);
+    }
+
+    .dot.warn {
+      background: var(--warn);
+      box-shadow: 0 0 14px rgba(255, 207, 102, 0.55);
+    }
+
+    .dot.bad {
+      background: var(--danger);
+      box-shadow: 0 0 14px rgba(255, 107, 107, 0.55);
+    }
+
+    .services {
+      display: grid;
+      gap: 10px;
+    }
+
+    .service {
+      width: 100%;
+      text-align: left;
+      padding: 14px 14px 15px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .service:hover {
+      transform: translateY(-1px);
+      border-color: rgba(92, 124, 255, 0.45);
+    }
+
+    .service.active {
+      border-color: rgba(78, 208, 168, 0.6);
+      background: linear-gradient(180deg, rgba(92, 124, 255, 0.18), rgba(78, 208, 168, 0.12));
+    }
+
+    .service strong {
+      display: block;
+      font-size: 15px;
+      margin-bottom: 6px;
+    }
+
+    .service code {
+      color: #c8d6ff;
+      font-size: 12px;
+    }
+
+    .sidebar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: auto;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, rgba(92, 124, 255, 0.75), rgba(78, 208, 168, 0.62));
+      border-color: transparent;
+    }
+
+    .btn.warn {
+      background: rgba(255, 207, 102, 0.12);
+    }
+
+    .btn.danger {
+      background: rgba(255, 107, 107, 0.12);
+    }
+
+    .btn[hidden] {
+      display: none;
+    }
+
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 36px);
+      overflow: hidden;
+    }
+
+    .workspace-head {
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .workspace-head h2 {
+      margin: 0 0 4px;
+      font-size: 22px;
+    }
+
+    .workspace-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .viewer-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      padding: 16px;
+    }
+
+    .viewer,
+    .empty {
+      width: 100%;
+      height: 100%;
+      min-height: 70vh;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #08111d;
+    }
+
+    .viewer {
+      display: none;
+    }
+
+    .viewer.visible {
+      display: block;
+    }
+
+    .empty {
+      display: grid;
+      place-items: center;
+      padding: 30px;
+      text-align: center;
+      background:
+        radial-gradient(500px 300px at 50% 20%, rgba(92, 124, 255, 0.12), transparent 60%),
+        #08111d;
+    }
+
+    .empty-box {
+      max-width: 620px;
+    }
+
+    .empty-box h3 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+
+    .status-line {
+      font-size: 13px;
+    }
+
+    .control-grid {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      text-align: left;
+    }
+
+    .control-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 16px;
+    }
+
+    .control-card h4 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .control-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 13px;
+    }
+
+    @media (max-width: 1180px) {
+      .control-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+
+      .workspace {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>AI Portal</h1>
+        <p>SSO arkasinda calisan servisleri tek ekrandan yonet. GPU lane simulasyonu da ayni portalin parcasi.</p>
+      </div>
+
+      <div class="pill-row">
+        <div class="pill"><span class="dot"></span><span>OAuth korumasi aktif</span></div>
+        <div class="pill"><span>Base: <code>/portal/</code></span></div>
+      </div>
+
+      <div class="status-row">
+        <div class="pill" id="loadStatus"><span class="dot warn"></span><span>GPU loadgen kontrol ediliyor</span></div>
+      </div>
+
+      <p class="hint">Dogru giris adresi `http://localhost/portal/`. GPU lane sim ekranindan light veya heavy serving yuku baslatip learning'in nasil kisildigini Grafana uzerinde gorebilirsin.</p>
+
+      <div class="services" id="services"></div>
+
+      <div class="sidebar-actions">
+        <a class="btn" href="/keycloak/" target="_blank" rel="noreferrer">Keycloak</a>
+        <a class="btn" href="/keycloak/admin/master/console/" target="_blank" rel="noreferrer">Admin</a>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <div class="workspace-head">
+        <div>
+          <h2 id="title">Kontrol Merkezi</h2>
+          <p class="workspace-copy" id="subtitle">Bir servis secin. Secilen servis ayni sayfada acilacak.</p>
+        </div>
+        <div class="workspace-actions">
+          <span class="pill" id="laneBadge" hidden><span class="dot warn"></span><span>Lane kontrolu hazir</span></span>
+          <button class="btn" id="lightLoadBtn" type="button" hidden>Light Load</button>
+          <button class="btn warn" id="heavyLoadBtn" type="button" hidden>Heavy Load</button>
+          <button class="btn danger" id="stopLoadBtn" type="button" hidden>Stop Load</button>
+          <button class="btn" id="backBtn" type="button">Geri</button>
+          <button class="btn" id="reloadBtn" type="button">Yenile</button>
+          <a class="btn primary" id="detachLink" href="/portal/" target="_blank" rel="noreferrer">Ayrik Ac</a>
+        </div>
+      </div>
+
+      <div class="viewer-wrap">
+        <div class="empty" id="emptyState">
+          <div class="empty-box">
+            <h3>Tek Giris, Tek Ekran</h3>
+            <p class="empty-copy">Portal kendi icinde yonlendirme yapar. `/portal/grafana`, `/portal/mlflow`, `/portal/prometheus`, `/portal/gpu-lane-sim` gibi rotalar ayni arayuzde calisir.</p>
+            <p class="status-line">GPU lane sim acildiginda serving baskisi altinda learning modunun `aggressive -> balanced -> trickle -> paused` gecislerini Grafana panelinde takip edebilirsin.</p>
+
+            <div class="control-grid">
+              <div class="control-card">
+                <h4>Learning Lane</h4>
+                <p>Arka planda surekli matrix carpan ve torch metrikleri ureterek qwen benzeri surekli ogrenme akisini temsil eder.</p>
+              </div>
+              <div class="control-card">
+                <h4>Serving Lane</h4>
+                <p>Whisper veya NLLB benzeri istege bagli inference cagrilarini simule eder. Yuku portal icindeki butonlarla arttirabilirsin.</p>
+              </div>
+              <div class="control-card">
+                <h4>Orchestrator</h4>
+                <p>Serving istekleri, kuyruk ve GPU basinclarina bakip learning lane modunu dusurur ya da tekrar agresif moda cikarir.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <iframe class="viewer" id="viewer" title="Service Viewer" loading="eager" referrerpolicy="same-origin"></iframe>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const services = [
+      {
+        key: "portal",
+        label: "Portal Home",
+        route: "/portal/",
+        frameSrc: "/portal/",
+        description: "Ana kabuga geri doner."
+      },
+      {
+        key: "gpu-lane-sim",
+        label: "GPU Lane Sim",
+        route: "/portal/gpu-lane-sim",
+        frameSrc: "/grafana/d/gpu-lane-sim/gpu-lane-sim?orgId=1&from=now-30m&to=now&refresh=5s",
+        description: "Serving, learning, orchestrator ve GPU basinclarini tek dashboard uzerinde izle."
+      },
+      {
+        key: "mlflow",
+        label: "MLflow",
+        route: "/portal/mlflow",
+        frameSrc: "/mlflow/",
+        description: "Experiment tracking ve model lifecycle."
+      },
+      {
+        key: "grafana",
+        label: "Grafana",
+        route: "/portal/grafana",
+        frameSrc: "/grafana/",
+        description: "Dashboard, log ve gozlemleme paneli."
+      },
+      {
+        key: "loki",
+        label: "Loki Logs",
+        route: "/portal/loki",
+        frameSrc: "/grafana/d/loki-logs/loki-logs?orgId=1&from=now-1h&to=now",
+        description: "Loki loglarini Grafana icindeki sabit dashboard uzerinden gosterir."
+      },
+      {
+        key: "prometheus",
+        label: "Prometheus",
+        route: "/portal/prometheus",
+        frameSrc: "/prometheus/",
+        description: "Metric sorgulama ve durum gozlemi."
+      }
+    ];
+
+    const viewer = document.getElementById("viewer");
+    const servicesEl = document.getElementById("services");
+    const emptyState = document.getElementById("emptyState");
+    const titleEl = document.getElementById("title");
+    const subtitleEl = document.getElementById("subtitle");
+    const detachLink = document.getElementById("detachLink");
+    const backBtn = document.getElementById("backBtn");
+    const reloadBtn = document.getElementById("reloadBtn");
+    const lightLoadBtn = document.getElementById("lightLoadBtn");
+    const heavyLoadBtn = document.getElementById("heavyLoadBtn");
+    const stopLoadBtn = document.getElementById("stopLoadBtn");
+    const laneBadge = document.getElementById("laneBadge");
+    const loadStatus = document.getElementById("loadStatus");
+
+    async function callLoadgen(path) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("loadgen request failed");
+      }
+      return response.json();
+    }
+
+    async function refreshLoadStatus() {
+      try {
+        const response = await fetch("/gpu-loadgen/status", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("loadgen unavailable");
+        }
+        const data = await response.json();
+        const active = data.running ? `${data.profile} / ${data.workers} worker` : "idle";
+        loadStatus.innerHTML = `<span class="dot ${data.running ? "" : "warn"}"></span><span>GPU loadgen: ${active}</span>`;
+        laneBadge.hidden = window.location.pathname !== "/portal/gpu-lane-sim";
+        laneBadge.innerHTML = `<span class="dot ${data.running ? "" : "warn"}"></span><span>Loadgen ${active}</span>`;
+      } catch (error) {
+        loadStatus.innerHTML = '<span class="dot bad"></span><span>GPU loadgen erisilemiyor</span>';
+        laneBadge.hidden = window.location.pathname !== "/portal/gpu-lane-sim";
+        laneBadge.innerHTML = '<span class="dot bad"></span><span>Loadgen down</span>';
+      }
+    }
+
+    function renderMenu(activeKey) {
+      servicesEl.innerHTML = "";
+
+      for (const service of services) {
+        const link = document.createElement("a");
+        link.href = service.route;
+        link.className = "service" + (service.key === activeKey ? " active" : "");
+        link.innerHTML = `
+          <strong>${service.label}</strong>
+          <p>${service.description}</p>
+          <code>${service.route}</code>
+        `;
+        link.addEventListener("click", (event) => {
+          event.preventDefault();
+          navigate(service.key);
+        });
+        servicesEl.appendChild(link);
+      }
+    }
+
+    function getServiceByPath(pathname) {
+      const clean = pathname.replace(/\/+$/, "") || "/";
+      if (clean === "/portal" || clean === "/portal/") return null;
+      return services.find((service) => service.route === clean) || null;
+    }
+
+    function setLoadControlsVisible(visible) {
+      laneBadge.hidden = !visible;
+      lightLoadBtn.hidden = !visible;
+      heavyLoadBtn.hidden = !visible;
+      stopLoadBtn.hidden = !visible;
+    }
+
+    function setWorkspace(service) {
+      renderMenu(service ? service.key : null);
+      setLoadControlsVisible(Boolean(service && service.key === "gpu-lane-sim"));
+
+      if (!service || service.key === "portal") {
+        viewer.classList.remove("visible");
+        viewer.removeAttribute("src");
+        emptyState.style.display = "grid";
+        titleEl.textContent = "Kontrol Merkezi";
+        subtitleEl.textContent = "Bir servis secin. Secilen servis ayni sayfada acilacak.";
+        detachLink.href = "/portal/";
+        return;
+      }
+
+      titleEl.textContent = service.label;
+      subtitleEl.textContent = service.description + " Login gerekiyorsa yine backend tarafinda kontrol edilir.";
+      detachLink.href = service.frameSrc;
+      emptyState.style.display = "none";
+      viewer.classList.add("visible");
+
+      if (viewer.dataset.current !== service.frameSrc) {
+        viewer.src = service.frameSrc;
+        viewer.dataset.current = service.frameSrc;
+      }
+    }
+
+    function navigate(key, replace = false) {
+      const service = services.find((item) => item.key === key) || null;
+      const route = service ? service.route : "/portal/";
+      const state = { service: service ? service.key : "portal" };
+
+      if (replace) {
+        history.replaceState(state, "", route);
+      } else {
+        history.pushState(state, "", route);
+      }
+
+      setWorkspace(service);
+      refreshLoadStatus();
+    }
+
+    backBtn.addEventListener("click", () => {
+      history.back();
+    });
+
+    reloadBtn.addEventListener("click", () => {
+      if (viewer.classList.contains("visible") && viewer.contentWindow) {
+        viewer.contentWindow.location.reload();
+      } else {
+        window.location.reload();
+      }
+    });
+
+    lightLoadBtn.addEventListener("click", async () => {
+      await callLoadgen("/gpu-loadgen/preset/light");
+      refreshLoadStatus();
+      if (viewer.dataset.current) {
+        viewer.contentWindow?.location.reload();
+      }
+    });
+
+    heavyLoadBtn.addEventListener("click", async () => {
+      await callLoadgen("/gpu-loadgen/preset/heavy");
+      refreshLoadStatus();
+      if (viewer.dataset.current) {
+        viewer.contentWindow?.location.reload();
+      }
+    });
+
+    stopLoadBtn.addEventListener("click", async () => {
+      await callLoadgen("/gpu-loadgen/stop");
+      refreshLoadStatus();
+    });
+
+    window.addEventListener("popstate", () => {
+      setWorkspace(getServiceByPath(window.location.pathname));
+      refreshLoadStatus();
+    });
+
+    setWorkspace(getServiceByPath(window.location.pathname));
+    renderMenu(getServiceByPath(window.location.pathname)?.key || null);
+    refreshLoadStatus();
+    window.setInterval(refreshLoadStatus, 5000);
+  </script>
+</body>
+</html>

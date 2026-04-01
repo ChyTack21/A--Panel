@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  - job_name: "gpu_fallback"
+    static_configs:
+      - targets: ["gpu_metrics_exporter:9500"]
+
+  - job_name: "gpu_serving"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_serving_sim:9700"]
+
+  - job_name: "gpu_learning"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_learning_sim:9701"]
+
+  - job_name: "gpu_orchestrator"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_orchestrator:9702"]
+
+  - job_name: "gpu_loadgen"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_loadgen:9703"]

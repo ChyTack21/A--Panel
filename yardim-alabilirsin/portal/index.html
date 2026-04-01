@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Platform Portal</title>
+  <style>
+    :root{
+      --bg:#0b1020;
+      --card:#111a33;
+      --text:#e8ecff;
+      --muted:#a6b0d6;
+      --ok:#39d98a;
+      --warn:#ffd166;
+      --bad:#ff5c7a;
+      --line:rgba(255,255,255,.08);
+      --btn:#1e2b57;
+      --btn2:#22346c;
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:18px;
+      --mono:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans:ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--sans);
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 20% 10%, rgba(88,110,255,.25), transparent 60%),
+        radial-gradient(1000px 600px at 80% 0%, rgba(57,217,138,.18), transparent 55%),
+        radial-gradient(900px 700px at 80% 90%, rgba(255,92,122,.14), transparent 55%),
+        var(--bg);
+      min-height:100vh;
+    }
+    .wrap{max-width:1180px; margin:0 auto; padding:28px 18px 44px;}
+    header,.card{
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      box-shadow:var(--shadow);
+    }
+    header{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      padding:18px;
+    }
+    h1,h2,h3,p{margin:0}
+    .title p,.muted{color:var(--muted)}
+    .right{display:flex; flex-direction:column; gap:10px; align-items:flex-end;}
+    .pill,.status,.tag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:7px 10px;
+      background:rgba(17,26,51,.45);
+      color:var(--muted);
+      font-size:12px;
+    }
+    .tag{font-family:var(--mono); font-size:11px;}
+    .dot{width:9px; height:9px; border-radius:50%;}
+    .dot.ok{background:var(--ok)}
+    .dot.bad{background:var(--bad)}
+    .dot.warn{background:var(--warn)}
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      text-decoration:none;
+      cursor:pointer;
+      border:1px solid var(--line);
+      background:var(--btn);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      font-size:13px;
+      transition:.15s ease;
+    }
+    .btn:hover{background:var(--btn2); transform:translateY(-1px);}
+    .btn.ghost{background:transparent;}
+    .row{display:flex; gap:10px; flex-wrap:wrap;}
+    .grid{display:grid; grid-template-columns:1.2fr .8fr; gap:16px; margin-top:16px;}
+    .apps,.dashboards{display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;}
+    .card .hd{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      padding:14px 16px;
+      border-bottom:1px solid var(--line);
+      background:rgba(17,26,51,.35);
+    }
+    .card .bd{padding:14px 16px;}
+    .app{
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:rgba(15,23,48,.6);
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .app .top{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
+    .app .name{font-size:14px; font-weight:700;}
+    .app .desc{font-size:12px; color:var(--muted); line-height:1.35;}
+    .kpi{display:grid; grid-template-columns:repeat(3,1fr); gap:10px;}
+    .kpi .box,.mini{
+      border:1px solid var(--line);
+      border-radius:16px;
+      background:rgba(15,23,48,.6);
+      padding:12px;
+    }
+    .kpi .l{font-size:12px; color:var(--muted)}
+    .kpi .v{font-size:16px; font-weight:700; margin-top:6px;}
+    .mini{font-family:var(--mono); font-size:11px; color:var(--muted); line-height:1.55;}
+    .footer{margin-top:14px; color:var(--muted); font-size:12px; text-align:center;}
+    .toast{
+      position:fixed;
+      right:16px;
+      bottom:16px;
+      background:rgba(17,26,51,.92);
+      border:1px solid var(--line);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:14px;
+      box-shadow:var(--shadow);
+      opacity:0;
+      transform:translateY(10px);
+      transition:.18s ease;
+      pointer-events:none;
+      font-size:12px;
+    }
+    .toast.show{opacity:1; transform:translateY(0);}
+    @media (max-width: 900px){
+      .grid{grid-template-columns:1fr;}
+      header{flex-direction:column;}
+      .right{align-items:flex-start;}
+    }
+    @media (max-width: 640px){
+      .apps,.dashboards,.kpi{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>AI Platform Portal</h1>
+        <p>Tek panel girisi: Grafana, Prometheus, Loki, MLflow, Keycloak, MinIO ve profile ile acilan GPU observability katmani.</p>
+      </div>
+      <div class="right">
+        <div class="pill" title="Portal URL">
+          <span class="dot ok"></span>
+          <span class="mono">http://localhost/</span>
+        </div>
+        <div class="row">
+          <button class="btn ghost" id="btnRefresh">Durumlari yenile</button>
+          <button class="btn" id="btnCopy">Linkleri kopyala</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="hd">
+          <h2>Uygulamalar</h2>
+          <div class="status">
+            <span class="dot warn" id="allDot"></span>
+            <strong id="allText">Kontrol ediliyor...</strong>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="apps" id="apps"></div>
+          <div style="margin-top:14px" class="mini">
+            <div><strong>Not:</strong> GPU exporter ve demo servisleri sadece <code>--profile gpu</code> ile acilir.</div>
+            <div>Prometheus target listesi ve Grafana dashboard klasorleri bu profile acildiginda GPU metrikleriyle dolar.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="hd">
+          <h2>Hizli Baslangic</h2>
+          <a class="btn ghost" href="http://localhost/grafana/" target="_blank" rel="noreferrer">Grafana</a>
+        </div>
+        <div class="bd">
+          <div class="kpi">
+            <div class="box">
+              <div class="l">Portal</div>
+              <div class="v">/portal</div>
+            </div>
+            <div class="box">
+              <div class="l">Observability</div>
+              <div class="v">Prometheus + Grafana</div>
+            </div>
+            <div class="box">
+              <div class="l">GPU Mode</div>
+              <div class="v">--profile gpu</div>
+            </div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="mini">
+            <div><strong>Onerilen kontrol sirasi:</strong></div>
+            <div>1) Prometheus Targets</div>
+            <div>2) Host Node Overview</div>
+            <div>3) Container Overview</div>
+            <div>4) GPU Observability</div>
+            <div>5) MLflow / Keycloak / MinIO entegrasyonu</div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="dashboards">
+            <div class="app">
+              <div class="name">GPU Dashboard</div>
+              <div class="desc">Per-GPU utilization, memory, power, temperature, clocks ve gpu-demo aktivitesi.</div>
+              <div class="row">
+                <a class="btn" href="http://localhost/grafana/d/gpu-observability" target="_blank" rel="noreferrer">Ac</a>
+              </div>
+            </div>
+            <div class="app">
+              <div class="name">Lane Simulation</div>
+              <div class="desc">Serving lane, learning lane ve orchestrator kararlarini ayni ekranda izle.</div>
+              <div class="row">
+                <a class="btn" href="http://localhost/grafana/d/gpu-lane-simulation" target="_blank" rel="noreferrer">Ac</a>
+              </div>
+            </div>
+            <div class="app">
+              <div class="name">Host Metrics</div>
+              <div class="desc">CPU, RAM, load, disk, fs ve network panelleri.</div>
+              <div class="row">
+                <a class="btn" href="http://localhost/grafana/d/node-overview" target="_blank" rel="noreferrer">Ac</a>
+              </div>
+            </div>
+            <div class="app">
+              <div class="name">Container Metrics</div>
+              <div class="desc">Container CPU, bellek, network, fs IO ve telemetry sagligi.</div>
+              <div class="row">
+                <a class="btn" href="http://localhost/grafana/d/container-overview" target="_blank" rel="noreferrer">Ac</a>
+              </div>
+            </div>
+            <div class="app">
+              <div class="name">Prometheus Targets</div>
+              <div class="desc">Exporter ve probe hedeflerinin up/down durumunu dogrudan gor.</div>
+              <div class="row">
+                <a class="btn" href="http://localhost/prometheus/targets" target="_blank" rel="noreferrer">Ac</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span id="year"></span> AI Platform · Docker Compose observability panel
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Kopyalandi</div>
+
+  <script>
+    const APPS = [
+      {
+        key: "grafana",
+        name: "Grafana",
+        desc: "Dashboard, Explore, alert ve provisioning merkezi",
+        url: "http://localhost/grafana/",
+        health: "http://localhost/grafana/api/health",
+        tags: ["grafana", "dashboards", "alerts"]
+      },
+      {
+        key: "prometheus",
+        name: "Prometheus",
+        desc: "PromQL, scrape target listesi, rule evaluation ve exporter health",
+        url: "http://localhost/prometheus/",
+        health: "http://localhost/prometheus/-/healthy",
+        tags: ["promql", "targets", "rules"]
+      },
+      {
+        key: "keycloak",
+        name: "Keycloak",
+        desc: "OIDC, realm, role ve SSO akisi",
+        url: "http://localhost/keycloak",
+        health: "http://localhost/keycloak/realms/master/.well-known/openid-configuration",
+        tags: ["oidc", "sso", "auth"]
+      },
+      {
+        key: "mlflow",
+        name: "MLflow",
+        desc: "Experiment tracking, run history ve model registry",
+        url: "http://localhost/mlflow/",
+        health: "http://localhost/mlflow/",
+        tags: ["tracking", "registry", "artifacts"]
+      },
+      {
+        key: "minio",
+        name: "MinIO Console",
+        desc: "MLflow artifact bucket ve obje depolama katmani",
+        url: "http://localhost:9001",
+        health: null,
+        tags: ["s3", "storage", "artifacts"]
+      },
+      {
+        key: "gpu",
+        name: "GPU Profile",
+        desc: "dcgm-exporter, gpu-demo ve fallback exporter profile ile acilir",
+        url: "http://localhost/grafana/d/gpu-observability",
+        health: "http://localhost/grafana/api/health",
+        tags: ["profile:gpu", "dcgm", "torch"]
+      },
+      {
+        key: "serving",
+        name: "Serving Sim",
+        desc: "HTTP ile tetiklenen serving lane; latency, queue ve throughput metricleri uretir",
+        url: "http://localhost/gpu-serving/status",
+        health: "http://localhost/gpu-serving/healthz",
+        tags: ["lane:serve", "http", "gpu"]
+      },
+      {
+        key: "orchestrator",
+        name: "Orchestrator",
+        desc: "Serving baskisina gore learning lane modunu yoneten scheduler",
+        url: "http://localhost/gpu-orchestrator/status",
+        health: "http://localhost/gpu-orchestrator/healthz",
+        tags: ["lane:control", "scheduler", "gpu"]
+      }
+    ];
+
+    const elApps = document.getElementById("apps");
+    const elAllText = document.getElementById("allText");
+    const elAllDot = document.getElementById("allDot");
+    const elYear = document.getElementById("year");
+    const toast = document.getElementById("toast");
+
+    elYear.textContent = new Date().getFullYear();
+
+    function stateClass(state){
+      if (state === "up") return "ok";
+      if (state === "down") return "bad";
+      return "warn";
+    }
+
+    function stateLabel(state){
+      if (state === "up") return "UP";
+      if (state === "down") return "DOWN";
+      return "CHECK";
+    }
+
+    function render(app, state){
+      return `
+        <div class="app">
+          <div class="top">
+            <div>
+              <div class="name">${app.name}</div>
+              <div class="desc">${app.desc}</div>
+            </div>
+            <div class="status">
+              <span class="dot ${stateClass(state)}"></span>
+              <strong>${stateLabel(state)}</strong>
+            </div>
+          </div>
+          <div class="row">${app.tags.map(tag => `<span class="tag">${tag}</span>`).join("")}</div>
+          <div class="row">
+            <a class="btn" href="${app.url}" target="_blank" rel="noreferrer">Ac</a>
+            ${app.health ? `<button class="btn ghost" data-ping="${app.key}">Ping</button>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function showToast(text){
+      toast.textContent = text;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 1200);
+    }
+
+    async function ping(url){
+      try{
+        const response = await fetch(url, { cache: "no-store" });
+        return response.ok ? "up" : "down";
+      }catch{
+        return "down";
+      }
+    }
+
+    async function refreshAll(){
+      elAllText.textContent = "Kontrol ediliyor...";
+      elAllDot.className = "dot warn";
+      elApps.innerHTML = APPS.map(app => render(app, "check")).join("");
+
+      const results = await Promise.all(APPS.map(async app => ({
+        key: app.key,
+        state: app.health ? await ping(app.health) : "check"
+      })));
+
+      const stateMap = new Map(results.map(item => [item.key, item.state]));
+      elApps.innerHTML = APPS.map(app => render(app, stateMap.get(app.key) || "check")).join("");
+
+      const down = results.filter(item => item.state === "down").length;
+      if (down > 0){
+        elAllText.textContent = "Bazi servisler erisilemiyor";
+        elAllDot.className = "dot bad";
+      } else {
+        elAllText.textContent = "Servisler erisilebilir";
+        elAllDot.className = "dot ok";
+      }
+
+      document.querySelectorAll("[data-ping]").forEach(button => {
+        button.addEventListener("click", async event => {
+          const app = APPS.find(item => item.key === event.currentTarget.getAttribute("data-ping"));
+          const state = await ping(app.health);
+          showToast(`${app.name}: ${state.toUpperCase()}`);
+          refreshAll();
+        });
+      });
+    }
+
+    function copyLinks(){
+      const lines = [
+        "Portal: http://localhost/",
+        "Grafana: http://localhost/grafana/",
+        "Prometheus: http://localhost/prometheus/",
+        "Prometheus Targets: http://localhost/prometheus/targets",
+        "GPU Dashboard: http://localhost/grafana/d/gpu-observability",
+        "Lane Simulation: http://localhost/grafana/d/gpu-lane-simulation",
+        "Host Dashboard: http://localhost/grafana/d/node-overview",
+        "Container Dashboard: http://localhost/grafana/d/container-overview",
+        "Serving Simulation: http://localhost/gpu-serving/status",
+        "Orchestrator: http://localhost/gpu-orchestrator/status",
+        "MLflow: http://localhost/mlflow/",
+        "Keycloak: http://localhost/keycloak/",
+        "MinIO: http://localhost:9001/"
+      ];
+      navigator.clipboard.writeText(lines.join("\n")).then(() => showToast("Linkler kopyalandi"));
+    }
+
+    document.getElementById("btnRefresh").addEventListener("click", refreshAll);
+    document.getElementById("btnCopy").addEventListener("click", copyLinks);
+    refreshAll();
+  </script>
+</body>
+</html>

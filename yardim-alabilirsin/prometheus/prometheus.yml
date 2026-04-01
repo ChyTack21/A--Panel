@@ -1,0 +1,64 @@
+global:
+  scrape_interval: 15s
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  - job_name: "node"
+    static_configs:
+      - targets: ["node_exporter:9100"]
+
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  - job_name: "http_probe"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://nginx
+          - http://grafana:3000/api/health
+          - http://prometheus:9090/-/healthy
+          - http://keycloak:8080/keycloak/realms/master/.well-known/openid-configuration
+          - http://mlflow:5000/
+          - http://minio:9001/
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: target
+      - target_label: __address__
+        replacement: blackbox_exporter:9115
+
+  - job_name: "dcgm"
+    static_configs:
+      - targets: ["dcgm_exporter:9400"]
+
+  - job_name: "gpu_fallback"
+    static_configs:
+      - targets: ["gpu_metrics_exporter:9500"]
+
+  - job_name: "gpu_demo"
+    static_configs:
+      - targets: ["gpu_demo:9600"]
+
+  - job_name: "gpu_serving"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_serving_sim:9700"]
+
+  - job_name: "gpu_learning"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_learning_sim:9701"]
+
+  - job_name: "gpu_orchestrator"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["gpu_orchestrator:9702"]

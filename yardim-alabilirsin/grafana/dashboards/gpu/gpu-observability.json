@@ -1,0 +1,306 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_utilization_percent{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Utilization",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "((DCGM_FI_DEV_FB_USED{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"} / clamp_min(DCGM_FI_DEV_FB_FREE{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"} + DCGM_FI_DEV_FB_USED{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}, 1)) * 100) or (nvidia_smi_gpu_memory_used_percent{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Memory Usage %",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "celsius" },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_GPU_TEMP{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_temperature_celsius{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Temperature",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": { "unit": "watt" },
+        "overrides": []
+      },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_POWER_USAGE{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_power_draw_watts{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A"
+        }
+      ],
+      "title": "GPU Power Draw",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_utilization_percent{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "gpu{{gpu}}",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_MEM_COPY_UTIL{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (0 * nvidia_smi_gpu_utilization_percent{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "mem-copy gpu{{gpu}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Utilization Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_FB_USED{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"} * 1024 * 1024) or (nvidia_smi_gpu_memory_used_megabytes{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"} * 1024 * 1024)",
+          "legendFormat": "used gpu{{gpu}}",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "((DCGM_FI_DEV_FB_FREE{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"} + DCGM_FI_DEV_FB_USED{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) * 1024 * 1024) or (nvidia_smi_gpu_memory_total_megabytes{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"} * 1024 * 1024)",
+          "legendFormat": "total gpu{{gpu}}",
+          "refId": "B"
+        }
+      ],
+      "title": "GPU Memory",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "MHz" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "id": 7,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_SM_CLOCK{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_sm_clock_mhz{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "sm gpu{{gpu}}",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "(DCGM_FI_DEV_MEM_CLOCK{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\", UUID=~\"$uuid\"}) or (nvidia_smi_gpu_memory_clock_mhz{job=\"gpu_fallback\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"})",
+          "legendFormat": "mem gpu{{gpu}}",
+          "refId": "B"
+        }
+      ],
+      "title": "GPU Clocks",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "id": 8,
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "gpu_demo_active{job=\"gpu_demo\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"}",
+          "legendFormat": "active gpu{{gpu}} {{uuid}}",
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "gpu_demo_iterations_total{job=\"gpu_demo\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"}",
+          "legendFormat": "iterations gpu{{gpu}} {{uuid}}",
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "gpu_demo_last_iteration_seconds{job=\"gpu_demo\", instance=~\"$instance\", gpu=~\"$gpu\", uuid=~\"$uuid\"}",
+          "legendFormat": "latency gpu{{gpu}} {{uuid}}",
+          "refId": "C"
+        }
+      ],
+      "title": "GPU Demo Workload",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "includeAll": true,
+        "label": "Instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": "label_values(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm\"}, instance)",
+        "regex": "",
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "includeAll": true,
+        "label": "GPU",
+        "multi": true,
+        "name": "gpu",
+        "options": [],
+        "query": "label_values(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm\", instance=~\"$instance\"}, gpu)",
+        "regex": "",
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "includeAll": true,
+        "label": "UUID",
+        "multi": true,
+        "name": "uuid",
+        "options": [],
+        "query": "label_values(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm\", instance=~\"$instance\", gpu=~\"$gpu\"}, UUID)",
+        "regex": "",
+        "refresh": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "title": "GPU Observability",
+  "uid": "gpu-observability",
+  "version": 1
+}

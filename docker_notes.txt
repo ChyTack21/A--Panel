@@ -1,0 +1,38 @@
+girinti önemli compose da
+
+-- bir container'ı silme ve geri yükleme
+docker compose rm -sf keycloak
+docker compose up -d keycloak
+
+
+-- container ların durumunu gösterir
+docker compose ps
+
+
+-- container ların srop ve start ı
+docker compose down
+docker compose up
+
+-- volume yani içindeki verileride siler DİKKAT ET...
+docker compose down -v
+docker compose up -d
+
+--- docker da bir container ın log unun izlenmesi
+docker logs --tail=120 ai_mlflow
+
+
+-- force recreate...
+docker compose up -d --force-recreate nginx
+
+
+
+1 ) 	Keycloak port hatası çözümlendi.
+
+		docker compose'a alağıdaki alan eklendi. 
+
+		    ports:
+				- "8080:8080"
+				
+		docker compose ps   komutu çalıştırıldığında  ports bölümünde   0.0.0.0:8000 -> 8080/tcp  yazması gerekiyor çalışması için 
+
+		

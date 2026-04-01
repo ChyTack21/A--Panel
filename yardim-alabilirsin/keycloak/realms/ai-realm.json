@@ -1,0 +1,199 @@
+{
+  "realm": "ai",
+  "enabled": true,
+  "displayName": "AI Realm",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+
+  "clients": [
+    {
+      "clientId": "mlflow",
+      "name": "MLflow",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost/oauth2/callback"
+      ],
+      "webOrigins": [
+        "http://localhost"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost/*"
+      },
+      "secret": "CHANGE_ME_MLFLOW_SECRET"
+    },
+    {
+      "clientId": "grafana",
+      "name": "Grafana",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost/grafana/login/generic_oauth",
+        "http://localhost:3000/login/generic_oauth",
+        "http://grafana.local/login/generic_oauth"
+      ],
+      "webOrigins": [
+        "http://localhost",
+        "http://localhost:3000",
+        "http://grafana.local"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost/grafana/* http://localhost:3000/*"
+      },
+      "secret": "CHANGE_ME_GRAFANA_SECRET"
+    },
+    {
+      "clientId": "minio",
+      "name": "MinIO",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:9001/oauth_callback",
+        "http://minio.local:9001/oauth_callback",
+        "http://minio.local/oauth_callback"
+      ],
+      "webOrigins": [
+        "http://localhost:9001",
+        "http://minio.local:9001",
+        "http://minio.local"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:9001/*"
+      },
+      "secret": "CHANGE_ME_MINIO_SECRET"
+    },
+    {
+      "clientId": "prometheus",
+      "name": "Prometheus (for oauth2-proxy)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:4180/oauth2/callback",
+        "http://prom.local/oauth2/callback",
+        "http://localhost/oauth2/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:4180",
+        "http://prom.local",
+        "http://localhost"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost/*"
+      },
+      "secret": "CHANGE_ME_PROMETHEUS_SECRET"
+    }
+  ],
+
+  "roles": {
+    "realm": [
+      {
+        "name": "ai_admin",
+        "description": "Global admin",
+        "composite": true,
+        "composites": {
+          "client": {
+            "grafana": ["grafana_admin"],
+            "mlflow": ["mlflow_admin"],
+            "minio": ["minio_admin"],
+            "prometheus": ["prometheus_admin"]
+          }
+        }
+      },
+      {
+        "name": "ai_user",
+        "description": "Global user",
+        "composite": true,
+        "composites": {
+          "client": {
+            "grafana": ["grafana_user"],
+            "mlflow": ["mlflow_user"],
+            "minio": ["minio_user"],
+            "prometheus": ["prometheus_user"]
+          }
+        }
+      },
+      {
+        "name": "ai_readonly",
+        "description": "Global readonly",
+        "composite": true,
+        "composites": {
+          "client": {
+            "grafana": ["grafana_readonly"],
+            "mlflow": ["mlflow_readonly"],
+            "minio": ["minio_readonly"],
+            "prometheus": ["prometheus_readonly"]
+          }
+        }
+      }
+    ],
+
+    "client": {
+      "grafana": [
+        { "name": "grafana_admin" },
+        { "name": "grafana_user" },
+        { "name": "grafana_readonly" }
+      ],
+      "mlflow": [
+        { "name": "mlflow_admin" },
+        { "name": "mlflow_user" },
+        { "name": "mlflow_readonly" }
+      ],
+      "minio": [
+        { "name": "minio_admin" },
+        { "name": "minio_user" },
+        { "name": "minio_readonly" }
+      ],
+      "prometheus": [
+        { "name": "prometheus_admin" },
+        { "name": "prometheus_user" },
+        { "name": "prometheus_readonly" }
+      ]
+    }
+  },
+
+  "users": [
+    {
+      "username": "meteaydin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Mete",
+      "lastName": "Aydin",
+      "email": "maydin@ankarabt.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "ChangeMe123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ai_admin"]
+    }
+  ]
+}
